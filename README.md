@@ -41,10 +41,13 @@ match the paper's Tables 5-7 and Figs 3-5.
 3. Idle retry: retry parked processes as soon as the processor would be idle, instead of waiting
    for the 30-unit cycle (this is the second reading of the paper's flowchart).
 
+2. Gated aging: a process that has been overtaken at least 5 times by later arrivals may go first,
+   but only if it can run right now (1-comparison test, with back-off after failed tries).
+
 ## Status and known issues
 
-Work in progress. At this commit:
-- `enhanced.py` re-sorts the ready queue before every pick. The paper does not count sorting, but
-  this adds hidden cost; it will be changed to sort only when the queue changes.
-- The aging trigger is being revised (an "overtaken N times" trigger tests better).
+- The paper does not count sorting. In our measurements DBDAA's sorting costs about as much as its
+  safety checks; our version sorts exactly as much as DBDAA (it re-sorts only when the queue changes).
+- Our version is better than DBDAA in tight systems, break-even when slightly tight, and slightly
+  worse (+3 to +5 comparisons) in loose systems with staggered arrivals.
 - Not modelled: processes requesting more resources while running, multiple processors, preemption.

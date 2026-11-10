@@ -1,6 +1,7 @@
 # enhanced.py - DBDAA + two modifications (our test implementation)
 #   Modification 1: adaptive safety check (switch to a plain check when the system is tight)
-#   Modification 2: gated aging (a long-waiting process may go first, but only if it can run now)
+#   Modification 2: gated aging (a process that keeps being overtaken by newer ones may go first,
+#                   but only if it can run now)
 #   Modification 3: idle retry (when nothing is ready to run, retry the parked processes at once
 #                   instead of waiting for the end of the 30-unit cycle) - enhanced_final_idle()
 # Everything else (cycle m, arrival handling) is the same as dbdaa.py,
@@ -67,15 +68,20 @@ class AdaptiveChecker:
 
 def enhanced_run(total, maximum, allocation, burst, arrival,
                  m=CYCLE_M, wait_for_cycle=True, adaptive=True,
-                 alpha=0.0, gate_wait=None, probe_gap=5):
+                 alpha=0.0, gate_wait=None, probe_gap=5, overtake_limit=None):
     """
     Same simulation as dbdaa_run, with:
       adaptive  : True -> Modification 1 (adaptive check), False -> paper's check
-      gate_wait : Modification 2 (gated aging). None = off.
-                  If the process that has been in the system longest has waited at least
-                  gate_wait time units, it is tried FIRST, but only if it passes the
+      overtake_limit : Modification 2 (gated aging, final version). None = off.
+                  A process is 'overtaken' each time a process that arrived LATER starts
+                  running before it. When a waiting process has been overtaken at least
+                  overtake_limit times, it is tried FIRST, but only if it passes the
                   1-comparison quick test right now (so it never fails and gets parked).
-                  After a failed try, wait 'probe_gap' decisions before trying again.
+                  After a failed try, wait 'probe_gap' decisions before trying again, and
+                  double that wait after every further failed try (back-off).
+      gate_wait : (first version of the gate, kept for comparison in the report)
+                  tries the process that has waited longest once it has waited gate_wait
+                  time units. Fixed 'probe_gap', no back-off. None = off.
       alpha     : (first, naive version of aging, kept only for comparison in the report)
                   queue key = Max_Need - alpha * (time waited). alpha = 0 means off.
     """
@@ -100,6 +106,9 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
     finish_time = [None] * n
     retries = [0] * n
 
+    overtaken = [0] * n      # how many times a later-arriving process ran before process i
+    gap_now = probe_gap      # current waiting time between aging tries (grows with back-off)
+    queue_dirty = False      # True when the ready queue must be sorted again
     decisions = 0            # how many processes have been picked so far
     next_probe = 0           # earliest decision at which the next aging try is allowed
     clock = 0
@@ -113,7 +122,7 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
         return max_need[i] - alpha * (clock - arrival[i])
 
     def admit_arrivals():
-        nonlocal progress
+        nonlocal progress, queue_dirty
         while pending and arrival[pending[0]] <= clock:
             i = pending.pop(0)
             progress = True
@@ -131,9 +140,10 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
                     raise ValueError("Invalid input: allocations exceed total resources")
             max_need[i] = max(need[i])
             ready_queue.append(i)
+            queue_dirty = True
 
     def end_episode(end_time, retry=True):
-        nonlocal timer, ep
+        nonlocal timer, ep, queue_dirty
         if ep["safe"] or ep["primary"]:
             ep["end"] = end_time
             episodes.append(ep)
@@ -141,6 +151,7 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
             for i in primary_unsafe:
                 ready_queue.append(i - 1)
             primary_unsafe.clear()
+            queue_dirty = True
         timer = clock + m
         ep = {"start": clock, "safe": [], "primary": [], "comps": 0}
 
@@ -148,19 +159,30 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
         admit_arrivals()
 
         if ready_queue:
-            ready_queue.sort(key=key)               # stable sort; alpha = 0 -> Max_Need order
+            if queue_dirty or alpha != 0:           # sort only when the queue changed
+                ready_queue.sort(key=key)           # stable sort; alpha = 0 -> Max_Need order
+                queue_dirty = False
 
             # ---- Modification 2: gated aging ----
             probe_cost = 0
             picked = None
-            if gate_wait is not None and len(ready_queue) > 1 and decisions >= next_probe:
-                oldest = min(ready_queue, key=lambda x: (arrival[x], x))
-                if oldest != ready_queue[0] and clock - arrival[oldest] >= gate_wait:
+            use_gate = (overtake_limit is not None) or (gate_wait is not None)
+            if use_gate and len(ready_queue) > 1 and decisions >= next_probe:
+                if overtake_limit is not None:
+                    cand = max(ready_queue, key=lambda x: (overtaken[x], -arrival[x], -x))
+                    trigger = cand != ready_queue[0] and overtaken[cand] >= overtake_limit
+                else:
+                    cand = min(ready_queue, key=lambda x: (arrival[x], x))
+                    trigger = cand != ready_queue[0] and clock - arrival[cand] >= gate_wait
+                if trigger:
                     probe_cost = 1                   # the quick test costs 1 comparison
-                    if max(need[oldest]) <= min(available):
-                        picked = oldest              # it can run now -> let it go first
+                    if max(need[cand]) <= min(available):
+                        picked = cand                # it can run now -> let it go first
+                        gap_now = probe_gap
                     else:
-                        next_probe = decisions + probe_gap
+                        next_probe = decisions + gap_now
+                        if overtake_limit is not None:
+                            gap_now = min(gap_now * 2, 160)    # back-off
             decisions += 1
 
             if picked is not None:
@@ -180,6 +202,10 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
             if ok:
                 if first_start[i] is None:
                     first_start[i] = clock
+                if overtake_limit is not None:
+                    for q in ready_queue:
+                        if arrival[q] < arrival[i]:
+                            overtaken[q] += 1
                 timeline.append((i + 1, clock, clock + burst[i]))
                 clock += burst[i]
                 finish_time[i] = clock
@@ -245,7 +271,7 @@ def enhanced_final(total, maximum, allocation, burst, arrival):
     """Modifications 1 + 2: adaptive check + gated aging.
     Parked processes still wait for the 30-unit cycle, as in the paper's text."""
     return enhanced_run(total, maximum, allocation, burst, arrival,
-                        adaptive=True, gate_wait=CYCLE_M, probe_gap=5)
+                        adaptive=True, overtake_limit=5, probe_gap=5)
 
 
 def enhanced_final_idle(total, maximum, allocation, burst, arrival):
@@ -255,7 +281,7 @@ def enhanced_final_idle(total, maximum, allocation, burst, arrival):
     for the cycle to end. While the processor is idle nothing can be released, so waiting
     longer could never help."""
     return enhanced_run(total, maximum, allocation, burst, arrival,
-                        adaptive=True, gate_wait=CYCLE_M, probe_gap=5,
+                        adaptive=True, overtake_limit=5, probe_gap=5,
                         wait_for_cycle=False)
 
 
