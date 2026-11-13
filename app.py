@@ -38,11 +38,29 @@ st.markdown("""
 [data-testid="stSidebar"] button:hover { background:#dbeafe !important; border-color:#60a5fa !important; color:#1e3a8a !important; }
 [data-testid="stSidebar"] [data-testid="stFileUploader"] section { background:#1a2332 !important; border:1px dashed #64748b !important; border-radius:12px !important; padding:16px !important; }
 [data-testid="stSidebar"] [data-testid="stFileUploader"] section * { color:#dbe4ef !important; }
-[data-testid="stSidebar"] [data-testid="stFileUploader"] button { background:#f8fafc !important; color:#17212b !important; }
+[data-testid="stSidebar"] [data-testid="stFileUploader"] label,
+[data-testid="stSidebar"] [data-testid="stFileUploader"] label *,
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzoneInstructions"],
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzoneInstructions"] * {
+    color:#f8fafc !important;
+    opacity:1 !important;
+}
+[data-testid="stSidebar"] [data-testid="stFileUploader"] button,
+[data-testid="stSidebar"] [data-testid="stFileUploader"] button * {
+    background:#f8fafc !important;
+    color:#17212b !important;
+}
 [data-testid="stSidebar"] [data-testid="stFileUploaderFileName"],
 [data-testid="stSidebar"] [data-testid="stFileUploaderFileName"] *,
-[data-testid="stSidebar"] [data-testid="stFileUploaderDropzoneInstructions"],
-[data-testid="stSidebar"] [data-testid="stFileUploaderDropzoneInstructions"] * { color:#dbe4ef !important; opacity:1 !important; }
+[data-testid="stSidebar"] [data-testid="stFileUploaderFileName"] button,
+[data-testid="stSidebar"] [data-testid="stFileUploaderFileName"] button * {
+    color:#dbe4ef !important;
+    opacity:1 !important;
+}
+[data-testid="stSidebar"] button,
+[data-testid="stSidebar"] button * {
+    color:#17212b !important;
+}
 header[data-testid="stHeader"] { background:#111827 !important; }
 header[data-testid="stHeader"] * { color:#e7edf2 !important; }
 header[data-testid="stHeader"] button {
