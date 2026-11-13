@@ -71,3 +71,19 @@ result, is identical to DBDAA's.
   its safety checks.
 - Not modelled: processes requesting more resources while running, multiple processors, preemption.
 '@ | Set-Content -Encoding ascii README.md
+
+@'
+
+## Additional tests and results
+
+| File | What it does |
+|---|---|
+| `edge_tests.py` | 17 edge cases, 7 kinds of invalid input, and adversarial inputs (including an input on which DBDAA needs quadratic work) |
+| `workload_tests.py` | Seven workloads that differ in structure: the paper's data with random arrivals, heavy-tailed needs, specialised processes, bursty waves, late heavy arrivals, heavy-tailed run times, and a control |
+| `workload_results.txt` | Output of `workload_tests.py` |
+
+Run: `python edge_tests.py` and `python workload_tests.py`.
+
+Note: DBDAA's ordering cost is measured by counting the comparisons of Python's built-in sort, so the
+"total work" columns vary slightly between Python versions. Safety-check counts and waiting times do not.
+'@ | Add-Content -Encoding ascii README.md

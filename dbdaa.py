@@ -52,6 +52,34 @@ def safety_check(need_i, available):
     return True, comparisons
 
 
+def validate_input(total, maximum, allocation, burst, arrival):
+    """Reject invalid input with a clear message instead of silently giving wrong results.
+    (A process whose Maximum is larger than the system total is VALID: it is reported in
+    Unsafe_Sequence.)"""
+    n = len(maximum)
+    d = len(total)
+    if d == 0:
+        raise ValueError("at least one resource type is needed")
+    if not (len(allocation) == n and len(burst) == n and len(arrival) == n):
+        raise ValueError("maximum, allocation, burst and arrival need one entry per process")
+    for j in range(d):
+        if total[j] < 0:
+            raise ValueError("total resources must not be negative (R%d)" % (j + 1))
+    for i in range(n):
+        if len(maximum[i]) != d or len(allocation[i]) != d:
+            raise ValueError("P%d: maximum and allocation need exactly %d values (one per resource type)"
+                             % (i + 1, d))
+        for j in range(d):
+            if maximum[i][j] < 0 or allocation[i][j] < 0:
+                raise ValueError("P%d: maximum and allocation must not be negative" % (i + 1))
+            if allocation[i][j] > maximum[i][j]:
+                raise ValueError("P%d: allocation is larger than maximum for R%d" % (i + 1, j + 1))
+        if burst[i] < 0:
+            raise ValueError("P%d: burst time must not be negative" % (i + 1))
+        if arrival[i] < 0:
+            raise ValueError("P%d: arrival time must not be negative" % (i + 1))
+
+
 def dbdaa_run(total, maximum, allocation, burst, arrival, m=CYCLE_M, wait_for_cycle=True):
     """
     Full DBDAA simulation on a single processor.
@@ -63,7 +91,9 @@ def dbdaa_run(total, maximum, allocation, burst, arrival, m=CYCLE_M, wait_for_cy
                      False -> they go back as soon as the ready queue becomes empty
 
     Returns a dict with sequences, timeline, episodes, comparisons and per-process info.
+    Raises ValueError for invalid input (see validate_input).
     """
+    validate_input(total, maximum, allocation, burst, arrival)
     n = len(maximum)
     d = len(total)
 

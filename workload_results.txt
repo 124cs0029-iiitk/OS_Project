@@ -1,0 +1,72 @@
+﻿Seven workloads; waits are measured from arrival; 'work' = safety checks + ordering comparisons
+
+W1  the paper's own data (Data 1-3) with random arrival times
+    (hand-built data, not generated; 200 systems, 0 discarded as not finishable)
+                             checks      order       work   avg wait   max wait     finish
+    DBDAA (cycle)              17.9        5.3       23.3        1.9        7.7       42.1
+    DBDAA (idle retry)         17.9        5.3       23.3        1.9        7.7       42.1
+    Enhanced + idle            18.6        4.1       22.7        1.9        7.7       42.1
+    Enhanced + idle minus DBDAA (idle retry), safety checks:     +0.7 +- 0.4    (better   1, worse  19, equal 180)
+    Enhanced + idle minus DBDAA (idle retry), total work:       -0.6 +- 0.5    (better  65, worse  29, equal 106)
+    Enhanced + idle minus DBDAA (idle retry), longest wait:     +0.0 +- 0.0    (better   0, worse   0, equal 200)
+
+W2  heavy-tailed needs: mostly tiny, a few huge
+    (needs follow a very skewed distribution; 200 systems, 0 discarded as not finishable)
+                             checks      order       work   avg wait   max wait     finish
+    DBDAA (cycle)              63.3      378.2      441.5       48.5      134.4      144.4
+    DBDAA (idle retry)         63.3      378.2      441.5       48.3      131.8      140.3
+    Enhanced + idle            66.5      151.8      218.4       48.3      131.5      140.3
+    Enhanced + idle minus DBDAA (idle retry), safety checks:     +3.2 +- 0.1    (better   1, worse 199, equal   0)
+    Enhanced + idle minus DBDAA (idle retry), total work:     -223.1 +- 4.7    (better 200, worse   0, equal   0)
+    Enhanced + idle minus DBDAA (idle retry), longest wait:     -0.3 +- 0.4    (better   5, worse   0, equal 195)
+
+W3  specialised processes: each wants one resource type
+    (every quick test fails on the dominant resource; 200 systems, 0 discarded as not finishable)
+                             checks      order       work   avg wait   max wait     finish
+    DBDAA (cycle)             146.3      406.3      552.6       56.7      166.2      176.8
+    DBDAA (idle retry)        146.3      406.3      552.6       48.1      131.6      140.1
+    Enhanced + idle           149.8      178.2      327.9       48.1      131.6      140.1
+    Enhanced + idle minus DBDAA (idle retry), safety checks:     +3.5 +- 0.8    (better   6, worse 192, equal   2)
+    Enhanced + idle minus DBDAA (idle retry), total work:     -224.7 +- 4.6    (better 200, worse   0, equal   0)
+    Enhanced + idle minus DBDAA (idle retry), longest wait:     -0.0 +- 0.0    (better   1, worse   0, equal 199)
+
+W4  bursty waves: 6 waves of 8 simultaneous arrivals, quiet gaps of ~60
+    (batches of arrivals, long idle stretches; 200 systems, 0 discarded as not finishable)
+                             checks      order       work   avg wait   max wait     finish
+    DBDAA (cycle)              89.1      105.8      194.9       12.3       30.7      328.9
+    DBDAA (idle retry)         89.1      105.8      194.9       12.2       30.0      328.6
+    Enhanced + idle            93.6       93.2      186.9       12.2       30.0      328.6
+    Enhanced + idle minus DBDAA (idle retry), safety checks:     +4.5 +- 1.0    (better   4, worse  73, equal 123)
+    Enhanced + idle minus DBDAA (idle retry), total work:       -8.0 +- 1.0    (better 171, worse  23, equal   6)
+    Enhanced + idle minus DBDAA (idle retry), longest wait:     +0.0 +- 0.0    (better   0, worse   0, equal 200)
+
+W5  late heavy arrivals into a busy system (heavy processes always fit)
+    (starvation purely by being overtaken; 200 systems, 0 discarded as not finishable)
+                             checks      order       work   avg wait   max wait     finish heavy wait
+    DBDAA (cycle)              64.0      569.4      633.4       20.4      111.2      159.8      106.1
+    DBDAA (idle retry)         64.0      569.4      633.4       20.4      111.2      159.8      106.1
+    Enhanced + idle            64.0      171.8      235.8       20.4       41.1      159.8       29.9
+    Enhanced + idle minus DBDAA (idle retry), safety checks:     +0.0 +- 0.0    (better   0, worse   0, equal 200)
+    Enhanced + idle minus DBDAA (idle retry), total work:     -397.6 +- 3.8    (better 200, worse   0, equal   0)
+    Enhanced + idle minus DBDAA (idle retry), longest wait:    -70.2 +- 0.4    (better 200, worse   0, equal   0)
+    Enhanced + idle minus DBDAA (idle retry), heavy wait:      -76.2 +- 0.4    (better 200, worse   0, equal   0)
+
+W6  heavy-tailed run times: mostly short, a few very long jobs
+    (long non-preemptive runs; 200 systems, 0 discarded as not finishable)
+                             checks      order       work   avg wait   max wait     finish
+    DBDAA (cycle)             292.0      387.4      679.4      142.5      345.5      363.0
+    DBDAA (idle retry)        291.7      388.4      680.1      126.8      296.8      312.8
+    Enhanced + idle           249.7      199.7      449.4      126.8      296.8      312.8
+    Enhanced + idle minus DBDAA (idle retry), safety checks:    -42.1 +- 3.8    (better 186, worse  12, equal   2)
+    Enhanced + idle minus DBDAA (idle retry), total work:     -230.7 +- 8.5    (better 200, worse   0, equal   0)
+    Enhanced + idle minus DBDAA (idle retry), longest wait:     +0.0 +- 0.0    (better   0, worse   0, equal 200)
+
+W7  control: abundant resources, tiny needs
+    (nothing is tight, so we expect no gain on safety checks; 200 systems, 0 discarded as not finishable)
+                             checks      order       work   avg wait   max wait     finish
+    DBDAA (cycle)              40.0      252.6      292.6       48.3       81.3      140.4
+    DBDAA (idle retry)         40.0      252.6      292.6       48.3       81.3      140.4
+    Enhanced + idle            40.0      132.4      172.4       48.4       81.3      140.4
+    Enhanced + idle minus DBDAA (idle retry), safety checks:     +0.0 +- 0.0    (better   0, worse   0, equal 200)
+    Enhanced + idle minus DBDAA (idle retry), total work:     -120.2 +- 3.8    (better 200, worse   0, equal   0)
+    Enhanced + idle minus DBDAA (idle retry), longest wait:     -0.0 +- 0.0    (better   3, worse   0, equal 197)

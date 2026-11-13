@@ -11,7 +11,7 @@
 # so differences in the results come only from these modifications.
 import math
 from data import DATASETS, TOTAL_RESOURCES, CYCLE_M
-from dbdaa import safety_check as paper_check, show
+from dbdaa import safety_check as paper_check, show, validate_input
 
 
 def plain_check(need_i, available):
@@ -95,7 +95,9 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
                                   the paper). Both give exactly the same order and results.
       The result contains 'sort_comparisons' (comparisons spent on ordering the queue); it is
       counted only with sorted_insertion=True and alpha=0, otherwise it is None.
+    Raises ValueError for invalid input (see validate_input in dbdaa.py).
     """
+    validate_input(total, maximum, allocation, burst, arrival)
     n = len(maximum)
     d = len(total)
 
@@ -147,14 +149,34 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
                 lo = mid + 1
         ready_queue.insert(lo, i)
 
-    def queue_insert_many(batch):
+    def order_batch(batch):
+        """Order a batch by Max_Need with binary insertion (stable); comparisons are counted."""
+        nonlocal sort_comparisons
+        ordered = []
+        for i in batch:
+            lo = 0
+            hi = len(ordered)
+            while lo < hi:
+                mid = (lo + hi) // 2
+                sort_comparisons += 1
+                if max_need[i] < max_need[ordered[mid]]:
+                    hi = mid
+                else:
+                    lo = mid + 1
+            ordered.insert(lo, i)
+        return ordered
+
+    def queue_insert_many(batch, known_sorted):
         """Put the processes of 'batch' into the ready queue, ordered by Max_Need.
         The result is exactly what a stable sort would give. Two ways, the cheaper one
         (by estimated comparisons) is used:
           A) insert the processes one by one with a binary search
-          B) check that the batch is already in order (k-1 comparisons; it usually is,
-             because parked processes return in the order they left the queue),
-             then merge it with the queue
+          B) order the batch, then merge it with the queue.
+             known_sorted=True  (parked processes coming back: they usually return in the
+                                 order they left the queue): the batch is only CHECKED
+                                 (k-1 comparisons) and ordered only if the check fails.
+             known_sorted=False (new arrivals: in no particular order): the batch is
+                                 ordered at once, without a useless check.
         """
         nonlocal sort_comparisons, queue_dirty
         k = len(batch)
@@ -169,28 +191,24 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
         for j in range(k):
             if length + j > 0:
                 cost_a += math.ceil(math.log2(length + j + 1))
-        cost_b = (k - 1) + ((length + k) if length > 0 else 0)
+        merge_cost = (length + k) if length > 0 else 0
+        if known_sorted:
+            cost_b = (k - 1) + merge_cost
+        else:
+            cost_b = sum(math.ceil(math.log2(j + 1)) for j in range(1, k)) + merge_cost
         if cost_a <= cost_b:
             for i in batch:
                 insert_one(i)
             return
-        ordered = batch
-        for a in range(1, k):                       # is the batch already in order?
-            sort_comparisons += 1
-            if max_need[batch[a]] < max_need[batch[a - 1]]:
-                ordered = []                        # no: order it by binary insertion
-                for i in batch:
-                    lo = 0
-                    hi = len(ordered)
-                    while lo < hi:
-                        mid = (lo + hi) // 2
-                        sort_comparisons += 1
-                        if max_need[i] < max_need[ordered[mid]]:
-                            hi = mid
-                        else:
-                            lo = mid + 1
-                    ordered.insert(lo, i)
-                break
+        if known_sorted:
+            ordered = batch
+            for a in range(1, k):                   # is the batch already in order?
+                sort_comparisons += 1
+                if max_need[batch[a]] < max_need[batch[a - 1]]:
+                    ordered = order_batch(batch)    # no: order it
+                    break
+        else:
+            ordered = order_batch(batch)
         if length == 0:
             ready_queue[:] = ordered                # nothing to merge with, no comparisons
             return
@@ -229,7 +247,7 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
                     raise ValueError("Invalid input: allocations exceed total resources")
             max_need[i] = max(need[i])
             batch.append(i)
-        queue_insert_many(batch)
+        queue_insert_many(batch, known_sorted=False)
 
     def end_episode(end_time, retry=True):
         nonlocal timer, ep
@@ -237,7 +255,7 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
             ep["end"] = end_time
             episodes.append(ep)
         if retry and primary_unsafe:
-            queue_insert_many([i - 1 for i in primary_unsafe])
+            queue_insert_many([i - 1 for i in primary_unsafe], known_sorted=True)
             primary_unsafe.clear()
         timer = clock + m
         ep = {"start": clock, "safe": [], "primary": [], "comps": 0}
