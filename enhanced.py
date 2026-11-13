@@ -4,8 +4,12 @@
 #                   but only if it can run now)
 #   Modification 3: idle retry (when nothing is ready to run, retry the parked processes at once
 #                   instead of waiting for the end of the 30-unit cycle) - enhanced_final_idle()
+#   Implementation: ordered insertion (processes entering the ready queue are placed with a binary
+#                   search, or merged in as a batch, instead of re-sorting the whole queue;
+#                   the order is exactly the same as DBDAA's)
 # Everything else (cycle m, arrival handling) is the same as dbdaa.py,
 # so differences in the results come only from these modifications.
+import math
 from data import DATASETS, TOTAL_RESOURCES, CYCLE_M
 from dbdaa import safety_check as paper_check, show
 
@@ -68,7 +72,8 @@ class AdaptiveChecker:
 
 def enhanced_run(total, maximum, allocation, burst, arrival,
                  m=CYCLE_M, wait_for_cycle=True, adaptive=True,
-                 alpha=0.0, gate_wait=None, probe_gap=5, overtake_limit=None):
+                 alpha=0.0, gate_wait=None, probe_gap=5, overtake_limit=None,
+                 sorted_insertion=True):
     """
     Same simulation as dbdaa_run, with:
       adaptive  : True -> Modification 1 (adaptive check), False -> paper's check
@@ -84,6 +89,12 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
                   time units. Fixed 'probe_gap', no back-off. None = off.
       alpha     : (first, naive version of aging, kept only for comparison in the report)
                   queue key = Max_Need - alpha * (time waited). alpha = 0 means off.
+      sorted_insertion : True  -> processes entering the ready queue are put in place with a
+                                  binary search, or merged in as a batch when that is cheaper
+                         False -> the whole queue is sorted again whenever it changed (as in
+                                  the paper). Both give exactly the same order and results.
+      The result contains 'sort_comparisons' (comparisons spent on ordering the queue); it is
+      counted only with sorted_insertion=True and alpha=0, otherwise it is None.
     """
     n = len(maximum)
     d = len(total)
@@ -109,6 +120,7 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
     overtaken = [0] * n      # how many times a later-arriving process ran before process i
     gap_now = probe_gap      # current waiting time between aging tries (grows with back-off)
     queue_dirty = False      # True when the ready queue must be sorted again
+    sort_comparisons = 0     # comparisons spent on keeping the ready queue in order
     decisions = 0            # how many processes have been picked so far
     next_probe = 0           # earliest decision at which the next aging try is allowed
     clock = 0
@@ -121,8 +133,85 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
     def key(i):
         return max_need[i] - alpha * (clock - arrival[i])
 
+    def insert_one(i):
+        """Binary-search insertion of one process (goes after processes with an equal key)."""
+        nonlocal sort_comparisons
+        lo = 0
+        hi = len(ready_queue)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            sort_comparisons += 1
+            if max_need[i] < max_need[ready_queue[mid]]:
+                hi = mid
+            else:
+                lo = mid + 1
+        ready_queue.insert(lo, i)
+
+    def queue_insert_many(batch):
+        """Put the processes of 'batch' into the ready queue, ordered by Max_Need.
+        The result is exactly what a stable sort would give. Two ways, the cheaper one
+        (by estimated comparisons) is used:
+          A) insert the processes one by one with a binary search
+          B) check that the batch is already in order (k-1 comparisons; it usually is,
+             because parked processes return in the order they left the queue),
+             then merge it with the queue
+        """
+        nonlocal sort_comparisons, queue_dirty
+        k = len(batch)
+        if k == 0:
+            return
+        if not (sorted_insertion and alpha == 0):
+            ready_queue.extend(batch)
+            queue_dirty = True
+            return
+        length = len(ready_queue)
+        cost_a = 0
+        for j in range(k):
+            if length + j > 0:
+                cost_a += math.ceil(math.log2(length + j + 1))
+        cost_b = (k - 1) + ((length + k) if length > 0 else 0)
+        if cost_a <= cost_b:
+            for i in batch:
+                insert_one(i)
+            return
+        ordered = batch
+        for a in range(1, k):                       # is the batch already in order?
+            sort_comparisons += 1
+            if max_need[batch[a]] < max_need[batch[a - 1]]:
+                ordered = []                        # no: order it by binary insertion
+                for i in batch:
+                    lo = 0
+                    hi = len(ordered)
+                    while lo < hi:
+                        mid = (lo + hi) // 2
+                        sort_comparisons += 1
+                        if max_need[i] < max_need[ordered[mid]]:
+                            hi = mid
+                        else:
+                            lo = mid + 1
+                    ordered.insert(lo, i)
+                break
+        if length == 0:
+            ready_queue[:] = ordered                # nothing to merge with, no comparisons
+            return
+        merged = []
+        a = 0
+        b = 0
+        while a < length and b < k:                 # merge two ordered lists
+            sort_comparisons += 1
+            if max_need[ordered[b]] < max_need[ready_queue[a]]:
+                merged.append(ordered[b])
+                b += 1
+            else:
+                merged.append(ready_queue[a])       # equal keys: the process already queued first
+                a += 1
+        merged.extend(ready_queue[a:])
+        merged.extend(ordered[b:])
+        ready_queue[:] = merged
+
     def admit_arrivals():
-        nonlocal progress, queue_dirty
+        nonlocal progress
+        batch = []
         while pending and arrival[pending[0]] <= clock:
             i = pending.pop(0)
             progress = True
@@ -139,19 +228,17 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
                 if available[j] < 0:
                     raise ValueError("Invalid input: allocations exceed total resources")
             max_need[i] = max(need[i])
-            ready_queue.append(i)
-            queue_dirty = True
+            batch.append(i)
+        queue_insert_many(batch)
 
     def end_episode(end_time, retry=True):
-        nonlocal timer, ep, queue_dirty
+        nonlocal timer, ep
         if ep["safe"] or ep["primary"]:
             ep["end"] = end_time
             episodes.append(ep)
         if retry and primary_unsafe:
-            for i in primary_unsafe:
-                ready_queue.append(i - 1)
+            queue_insert_many([i - 1 for i in primary_unsafe])
             primary_unsafe.clear()
-            queue_dirty = True
         timer = clock + m
         ep = {"start": clock, "safe": [], "primary": [], "comps": 0}
 
@@ -264,6 +351,7 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
         "finish_time": finish_time,
         "retries": retries,
         "end_time": clock,
+        "sort_comparisons": sort_comparisons if (sorted_insertion and alpha == 0) else None,
     }
 
 

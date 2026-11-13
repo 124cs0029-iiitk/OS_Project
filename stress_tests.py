@@ -6,7 +6,8 @@
 #   Test 3: independent replay of every simulation (a process only runs when its need fits)
 #   Test 4: all variants agree with the traditional Banker's algorithm on static systems
 #   Test 5: no variant loops forever (stuck system + late arrival)
-#   Test 6: measurement - sorting comparisons (the paper does not count them)
+#   Test 6: measurement - total work = safety checks + ordering the queue (the paper ignores the latter)
+#   Test 7: ordering the queue by insertion/merge gives exactly the same results as re-sorting
 import functools
 import random
 import sys
@@ -235,31 +236,62 @@ def load_counting(filename, modname, extra=None):
     return module
 
 
-def test6_sorting_cost():
-    print("\nTest 6: measurement - sorting comparisons (not counted by the paper), average per run")
+def test6_total_work():
+    print("\nTest 6: measurement - total work = safety checks + ordering the ready queue")
+    print("        (the paper counts only the safety checks; DBDAA's ordering is counted by")
+    print("         instrumenting its sort, ours by the 'sort_comparisons' value of the result)")
     from final_compare import good_systems
     dbd = load_counting("dbdaa.py", "dbdaa_counting")
-    sys.modules["dbdaa_counting"] = dbd
-    enh = load_counting("enhanced.py", "enhanced_counting", ("from dbdaa import", "from dbdaa_counting import"))
 
-    def sort_cost(fn, systems):
-        total = 0
+    print("       %-26s | %-27s | %-27s | %s" % ("system", "DBDAA: checks + order = total",
+                                                  "Enhanced: checks + order = total", "saved"))
+    for label, slack, n, spread in (("tight, n=30, staggered", 3, 30, 40),
+                                    ("loose, n=30, staggered", 12, 30, 40),
+                                    ("tight, n=100, staggered", 3, 100, 100),
+                                    ("loose, n=100, staggered", 12, 100, 100),
+                                    ("tight, n=100, all at 0", 3, 100, 0),
+                                    ("loose, n=100, all at 0", 12, 100, 0)):
+        systems = good_systems(40, n, slack, spread, 77)
+        d_checks = d_order = e_checks = e_order = 0
         for s in systems:
             CountingList.comparisons = 0
-            fn(*s)
-            total += CountingList.comparisons
-        return total / len(systems)
+            r = dbd.dbdaa_run(*s)
+            d_checks += r["comparisons"]
+            d_order += CountingList.comparisons
+            r = enhanced_final(*s)
+            e_checks += r["comparisons"]
+            e_order += r["sort_comparisons"]
+        k = len(systems)
+        d_checks, d_order, e_checks, e_order = d_checks / k, d_order / k, e_checks / k, e_order / k
+        saved = 100.0 * (1 - (e_checks + e_order) / (d_checks + d_order))
+        print("       %-26s | %6.0f + %6.0f = %6.0f  | %6.0f + %6.0f = %6.0f      | %.0f%%" %
+              (label, d_checks, d_order, d_checks + d_order, e_checks, e_order, e_checks + e_order, saved))
+        report("Enhanced total work is not above DBDAA's (%s)" % label,
+               e_checks + e_order <= d_checks + d_order)
 
-    print("       %-26s %8s %10s %14s" % ("system", "DBDAA", "Enhanced", "DBDAA checks"))
-    for label, slack, n, spread in (("tight, n=30, staggered", 3, 30, 40),
-                                    ("tight, n=100, staggered", 3, 100, 100),
-                                    ("tight, n=30, all at 0", 3, 30, 0)):
-        systems = good_systems(40, n, slack, spread, 77)
-        a = sort_cost(lambda *s: dbd.dbdaa_run(*s), systems)
-        b = sort_cost(lambda *s: enh.enhanced_final(*s), systems)
-        checks = sum(dbdaa_run(*s)["comparisons"] for s in systems) / len(systems)
-        print("       %-26s %8.0f %10.0f %14.0f" % (label, a, b, checks))
-        report("Enhanced sorts no more than 5%% above DBDAA (%s)" % label, b <= a * 1.05 + 1)
+
+# ------------------------------------------------------------------ Test 7
+def test7_ordering_equivalent(systems=1500):
+    print("\nTest 7: ordering by insertion/merge gives exactly the same results as re-sorting")
+    rng = random.Random(11)
+    different = 0
+    runs = 0
+    settings = [dict(adaptive=True), dict(adaptive=True, overtake_limit=5, probe_gap=5),
+                dict(adaptive=True, overtake_limit=1, probe_gap=1, wait_for_cycle=False),
+                dict(adaptive=False, gate_wait=30, probe_gap=5)]
+    for _ in range(systems):
+        n = rng.choice([4, 8, 15, 40, 80, 150])
+        d = rng.choice([2, 3, 5, 8])
+        s = random_system(rng, n, d, rng.choice([2, 4, 8]), rng.choice([0, 20, 60, 200]), rng.choice([0, 0.1]))
+        for cfg in settings:
+            a = enhanced_run(*s, **cfg)
+            b = enhanced_run(*s, sorted_insertion=False, **cfg)
+            runs += 1
+            if (a["timeline"], a["comparisons"], a["episodes"], a["stuck"], a["unsafe_sequence"]) != \
+               (b["timeline"], b["comparisons"], b["episodes"], b["stuck"], b["unsafe_sequence"]):
+                different += 1
+    report("same timeline, comparisons and episodes in %d runs" % runs, different == 0,
+           "(different: %d)" % different)
 
 
 if __name__ == "__main__":
@@ -268,6 +300,7 @@ if __name__ == "__main__":
     test3_replay()
     test4_verdicts()
     test5_no_hang()
-    test6_sorting_cost()
+    test6_total_work()
+    test7_ordering_equivalent()
     print("\n" + ("ALL TESTS PASSED" if failures == 0 else "%d TEST(S) FAILED" % failures))
     sys.exit(1 if failures else 0)
