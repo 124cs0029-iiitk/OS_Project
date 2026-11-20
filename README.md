@@ -1,11 +1,10 @@
-@'
 # DBDAA: Dynamic Banker's Deadlock Avoidance Algorithm
 
-OS course project: a from-scratch Python reimplementation of DBDAA, validated against the paper,
-plus our own modifications and the experiments that compare them.
+OS course project: a Python implementation of DBDAA, validated against the reference paper,
+with additional algorithm changes and reproducible experiments.
 
-Paper: Zohora M.F., Farhin F., Kaiser M.S. (2024), "DBDAA: A real-time approach to Dynamic Banker's
-Deadlock Avoidance Algorithm with optimized time complexity", PLOS ONE 19(9): e0310807.
+Paper: Zohora M. F., Farhin F., and Kaiser M. S. (2024), "DBDAA: A real-time approach to Dynamic
+Banker's Deadlock Avoidance Algorithm with optimized time complexity," PLOS ONE 19(9), e0310807.
 https://doi.org/10.1371/journal.pone.0310807
 
 ## Authors
@@ -13,77 +12,68 @@ https://doi.org/10.1371/journal.pone.0310807
 - Poojith Kumar
 - Navadeep
 
-## Files
+## Project layout
 
-| File | What it does |
-|---|---|
-| `data.py` | The paper's three datasets (Tables 2, 3, 4 = Data 1, 2, 3) |
-| `bankers.py` | Traditional Banker's safety algorithm |
-| `dbdaa.py` | DBDAA (arrivals, sorted queue, optimized safety check, timer cycle, retries) |
-| `enhanced.py` | Our version: adaptive safety check, gated aging, idle retry, ordered insertion |
-| `compare.py`, `compare2.py` | Early comparison scripts |
-| `final_compare.py` | All final experiments |
-| `stress_tests.py` | Correctness tests: paper numbers, exactness of the check, independent replay, verdicts, no infinite loops, total-work measurement |
-| `results.txt` | Output of `final_compare.py` |
+- Core application and algorithm modules remain in the repository root.
+- `reports/` contains the revised text and illustrated reports.
+- `results/tests/` contains the paper comparisons, correctness tests, workload tests, runtime
+  benchmarks, and the simulator's pytest tests.
+- `results/plots/` contains the plot and report generators and their source data.
+- `results/data/` contains the CSV data used by the plots.
+- `results/images/` contains the paper flowcharts and generated plots.
+- `results/outputs/` contains captured experiment outputs and the evidence ZIP.
 
 ## Run
 
-Python 3.8+ and the standard library only.
+Use Python 3.8 or newer. Install dependencies with:
 
-    python bankers.py
-    python dbdaa.py
-    python enhanced.py
-    python final_compare.py
-    python stress_tests.py
+```powershell
+python -m pip install -r requirements.txt
+```
 
-## Validation
+Run the app with `streamlit run app.py`. Run the project validation and experiments from the
+repository root:
 
-On the paper's data the traditional algorithm needs 85 / 100 / 125 comparisons and DBDAA needs
-10 / 36 / 70 in its first round, matching the paper's Table 8. The safe sequences and timelines
-match the paper's Tables 5-7 and Figs 3-5. `stress_tests.py` re-checks this and also tests the
-code on thousands of random systems.
+```powershell
+python -m pytest
+python -m results.tests.stress_tests
+python -m results.tests.edge_tests
+python -m results.tests.final_compare
+python -m results.tests.workload_tests
+python -m results.tests.runtime_benchmarks
+python results\plots\generate_evidence.py
+python results\plots\build_illustrated_report.py
+```
+
+The report builder writes `reports/DBDAA_Enhancement_Study_Illustrated_Revised.docx`.
+
+## Paper validation
+
+For Data 1/2/3 (Best/Average/Worst cases), the traditional algorithm uses 85/100/125 comparisons,
+and DBDAA uses 10/36/70 comparisons in its first round, matching the paper's Table 8. The safe
+sequences and timelines match the paper's Tables 5-7 and Figs. 3-5.
 
 ## Our modifications
 
-1. Adaptive check: switch to a plain check when DBDAA's shortcut keeps failing (tight systems).
-2. Gated aging: a process that has been overtaken at least 5 times by later arrivals may go first,
-   but only if it can run right now (1-comparison test, with back-off after failed tries).
-3. Idle retry: retry parked processes as soon as the processor would be idle, instead of waiting
-   for the 30-unit cycle (this is the second reading of the paper's flowchart).
+1. Adaptive check: switch to a plain check after repeated expensive DBDAA checks.
+2. Gated aging: a process overtaken at least five times may go first, but only if it can run now.
+3. Idle retry: retry parked processes when the processor would otherwise be idle. This flowchart
+   interpretation applies to DBDAA as well.
+4. Ordered insertion: maintain the same queue order without sorting the whole queue after each
+   change.
 
-Implementation detail: processes entering the ready queue are inserted with a binary search or
-merged in as a batch, instead of re-sorting the whole queue. The order, and therefore every
-result, is identical to DBDAA's.
+## Results in brief
 
-## Results in short
+- Safety-check comparisons fall 26.2% on the paper's Worst case (Data 3). Generated systems range
+  from about 4% fewer under low resource headroom to a few more under high resource headroom.
+- Total counted work, including queue ordering, is 14% to 51% lower in the tested scenarios.
+- Heavy-process waiting falls 82% in the stream starvation test.
+- Idle retry removes fixed-cycle idle time and benefits the DBDAA baseline too.
 
-- Safety-check comparisons: fewer than DBDAA in tight systems (10% to 30% fewer in our tests),
-  about equal when slightly tight, and a few comparisons more in loose systems.
-- Total work including ordering the queue (which the paper does not count): 14% to 51% less
-  than DBDAA in all tested scenarios.
-- Starvation test: waiting time of heavy processes 82% lower.
-- Idle retry removes the idle time of the fixed 30-unit cycle (average wait 18% to 24% lower in
-  tight systems); it applies to DBDAA as well.
+Safety checks, ordering work, fairness, and elapsed time are reported separately because the paper
+does not count queue-ordering work.
 
-## Status and known issues
+## Limitations
 
-- The paper does not count sorting. In our measurements DBDAA's ordering costs about as much as
-  its safety checks.
-- Not modelled: processes requesting more resources while running, multiple processors, preemption.
-'@ | Set-Content -Encoding ascii README.md
-
-@'
-
-## Additional tests and results
-
-| File | What it does |
-|---|---|
-| `edge_tests.py` | 17 edge cases, 7 kinds of invalid input, and adversarial inputs (including an input on which DBDAA needs quadratic work) |
-| `workload_tests.py` | Seven workloads that differ in structure: the paper's data with random arrivals, heavy-tailed needs, specialised processes, bursty waves, late heavy arrivals, heavy-tailed run times, and a control |
-| `workload_results.txt` | Output of `workload_tests.py` |
-
-Run: `python edge_tests.py` and `python workload_tests.py`.
-
-Note: DBDAA's ordering cost is measured by counting the comparisons of Python's built-in sort, so the
-"total work" columns vary slightly between Python versions. Safety-check counts and waiting times do not.
-'@ | Add-Content -Encoding ascii README.md
+The simulator does not model processes requesting additional resources while running, multiple
+processors, or preemption.

@@ -1,5 +1,5 @@
 # stress_tests.py - correctness and robustness tests for the whole project
-# Run:  python stress_tests.py        (a few seconds; prints PASS / FAIL for each test)
+# Run:  python -m results.tests.stress_tests
 #
 #   Test 1: reproduces the paper's numbers (Table 8, Tables 5-7, Figs 3-5)
 #   Test 2: the DBDAA check gives exactly the same verdict as the plain check (d = 1..10)
@@ -13,6 +13,7 @@ import random
 import sys
 import threading
 import types
+from pathlib import Path
 
 from data import DATASETS, TOTAL_RESOURCES, get_available
 from bankers import bankers_safety
@@ -37,12 +38,12 @@ def report(name, ok, detail=""):
     print("%-6s %s %s" % ("PASS" if ok else "FAIL", name, detail))
 
 
-def random_system(rng, n, d, tight, spread, oversize):
+def random_system(rng, n, d, slack, spread, oversize):
     allocation = [[rng.randint(0, 2) for _ in range(d)] for _ in range(n)]
     avail = [rng.randint(0, 3) for _ in range(d)]
     total = [avail[j] + sum(allocation[i][j] for i in range(n)) for j in range(d)]
     maximum = [[min(total[j] + (3 if rng.random() < oversize else 0),
-                    allocation[i][j] + rng.randint(0, tight)) for j in range(d)] for i in range(n)]
+                    allocation[i][j] + rng.randint(0, slack)) for j in range(d)] for i in range(n)]
     burst = [rng.randint(1, 6) for _ in range(n)]
     arrival = [rng.randint(0, spread) for _ in range(n)]
     return total, maximum, allocation, burst, arrival
@@ -225,7 +226,8 @@ class CountingList(list):
 
 
 def load_counting(filename, modname, extra=None):
-    source = open(filename).read()
+    source_path = Path(__file__).resolve().parents[2] / filename
+    source = source_path.read_text(encoding="utf-8")
     assert "ready_queue = []" in source, "cannot instrument " + filename
     source = source.replace("ready_queue = []", "ready_queue = CountingList()")
     if extra:
@@ -240,17 +242,17 @@ def test6_total_work():
     print("\nTest 6: measurement - total work = safety checks + ordering the ready queue")
     print("        (the paper counts only the safety checks; DBDAA's ordering is counted by")
     print("         instrumenting its sort, ours by the 'sort_comparisons' value of the result)")
-    from final_compare import good_systems
+    from results.tests.final_compare import good_systems
     dbd = load_counting("dbdaa.py", "dbdaa_counting")
 
     print("       %-26s | %-27s | %-27s | %s" % ("system", "DBDAA: checks + order = total",
                                                   "Enhanced: checks + order = total", "saved"))
-    for label, slack, n, spread in (("tight, n=30, staggered", 3, 30, 40),
-                                    ("loose, n=30, staggered", 12, 30, 40),
-                                    ("tight, n=100, staggered", 3, 100, 100),
-                                    ("loose, n=100, staggered", 12, 100, 100),
-                                    ("tight, n=100, all at 0", 3, 100, 0),
-                                    ("loose, n=100, all at 0", 12, 100, 0)):
+    for label, slack, n, spread in (("low headroom, n=30, staggered", 3, 30, 40),
+                                    ("high headroom, n=30, staggered", 12, 30, 40),
+                                    ("low headroom, n=100, staggered", 3, 100, 100),
+                                    ("high headroom, n=100, staggered", 12, 100, 100),
+                                    ("low headroom, n=100, all at 0", 3, 100, 0),
+                                    ("high headroom, n=100, all at 0", 12, 100, 0)):
         systems = good_systems(40, n, slack, spread, 77)
         d_checks = d_order = e_checks = e_order = 0
         for s in systems:

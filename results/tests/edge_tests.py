@@ -1,6 +1,5 @@
 # edge_tests.py - edge cases and adversarial inputs
-# Run:  python edge_tests.py        (about 20 seconds; PASS / FAIL for what must hold,
-#                                    NOTE for limitations that we measure and report)
+# Run:  python -m results.tests.edge_tests
 #
 #   Part E: edge cases (empty input, one process, d = 1, ties, boundaries, odd times, bad input, size)
 #   Part A: adversarial inputs that try to break our claims, including the paper's
@@ -14,11 +13,12 @@ import random
 import sys
 import threading
 import types
+from pathlib import Path
 
 from bankers import bankers_safety
 from dbdaa import dbdaa_run, safety_check
 from enhanced import AdaptiveChecker, enhanced_run, enhanced_final, enhanced_final_idle
-from stress_tests import replay_problems
+from results.tests.stress_tests import replay_problems
 
 VARIANTS = [
     ("DBDAA (cycle)",      lambda *s: dbdaa_run(*s)),
@@ -261,7 +261,7 @@ def growing_queue(n, kind):
 
 def part_a4():
     print("\nA4: ordering comparisons when the queue keeps growing (n = 400)")
-    source = open("dbdaa.py").read()
+    source = (Path(__file__).resolve().parents[2] / "dbdaa.py").read_text(encoding="utf-8")
     assert "ready_queue = []" in source
     counting = types.ModuleType("dbdaa_counting")
     counting.CountingList = CountingList

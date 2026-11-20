@@ -1,5 +1,5 @@
-# workload_tests.py - seven kinds of workload that differ in STRUCTURE (not just in tightness)
-# Run:  python workload_tests.py        (a few seconds)
+# workload_tests.py - seven workload kinds that differ in structure and resource behavior
+# Run:  python -m results.tests.workload_tests
 #
 # For every workload: DBDAA (cycle), DBDAA (idle retry) and Enhanced + idle on 200 random systems that
 # are safe by construction. Reported: safety-check comparisons ("checks"), comparisons spent on ordering
@@ -12,7 +12,7 @@ import sys
 from data import DATASETS, TOTAL_RESOURCES
 from dbdaa import dbdaa_run
 from enhanced import enhanced_final_idle
-from stress_tests import CountingList, load_counting
+from results.tests.stress_tests import CountingList, load_counting
 
 counting = load_counting("dbdaa.py", "dbdaa_counting")
 
@@ -111,7 +111,7 @@ def w6_heavy_tailed_runtimes(rng):
 
 
 def w7_abundant(rng):
-    """Control: resources are abundant and needs tiny, so nothing is ever tight."""
+    """Control: resources are abundant and needs tiny, so every process has ample headroom."""
     def need(rng, i, work, d):
         return [rng.randint(0, 2) for _ in range(d)]
     return build(rng, 40, 5, small_alloc, need, uniform_burst, spread_arrival(60), avail0=[30] * 5)
@@ -131,7 +131,7 @@ WORKLOADS = [
     ("W6", "heavy-tailed run times: mostly short, a few very long jobs",
      "long non-preemptive runs", w6_heavy_tailed_runtimes, None),
     ("W7", "control: abundant resources, tiny needs",
-     "nothing is tight, so we expect no gain on safety checks", w7_abundant, None),
+     "resource headroom is ample, so we expect no gain on safety checks", w7_abundant, None),
 ]
 
 

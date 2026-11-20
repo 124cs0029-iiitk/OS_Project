@@ -1,0 +1,4 @@
+scenario,runs,dbdaa,enhanced
+Steady stream: heavy wait,300,87.5,16.1
+Late arrivals: heavy wait,200,106.1,29.9
+Late arrivals: maximum wait,200,111.2,41.1

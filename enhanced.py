@@ -1,5 +1,5 @@
 # enhanced.py - DBDAA + two modifications (our test implementation)
-#   Modification 1: adaptive safety check (switch to a plain check when the system is tight)
+#   Modification 1: adaptive safety check (switch to a plain check when resource headroom is low)
 #   Modification 2: gated aging (a process that keeps being overtaken by newer ones may go first,
 #                   but only if it can run now)
 #   Modification 3: idle retry (when nothing is ready to run, retry the parked processes at once
@@ -31,7 +31,7 @@ class AdaptiveChecker:
     PAPER mode : use DBDAA's check (quick test + marking rounds).
     PLAIN mode : use the plain check.
     Switch PAPER -> PLAIN when the paper's check cost MORE than d comparisons
-                 for 'streak_limit' checks in a row (the system is tight).
+                 for 'streak_limit' checks in a row (available resource headroom is low).
     Switch PLAIN -> PAPER when a probe (the quick test, 1 comparison) passes.
                  A probe is done on every 'probe_every'-th check in PLAIN mode.
     """

@@ -1,7 +1,7 @@
 # final_compare.py - all final experiments for the report, in one place
 #   Part 1: the paper's datasets (Data 1, 2, 3)
 #   Part 2: scale test - comparisons as the number of processes grows
-#   Part 3: random systems with staggered arrivals, from very tight to loose
+#   Part 3: random systems with staggered arrivals and varied resource headroom
 #   Part 4: starvation test (steady stream of small processes + heavy ones)
 #   Part 5: sensitivity of the settings we chose
 #
@@ -24,7 +24,7 @@ from compare2 import make_stream
 
 def make_system(rng, n, slack, spread):
     """Random system that is safe by construction.
-    slack small = tight resources, slack large = loose resources.
+    Smaller slack values produce lower resource headroom; larger values produce higher headroom.
     spread = latest arrival time (0 = everyone arrives at time 0)."""
     d = 5
     allocation = [[rng.randint(0, 2) for _ in range(d)] for _ in range(n)]
@@ -102,7 +102,8 @@ IDLE = lambda *s: dbdaa_run(*s, wait_for_cycle=False)
 # ---------------------------------------------------------------- Part 1
 def part1():
     print("=" * 88)
-    print("PART 1: the paper's datasets (everyone arrives at time 0)")
+    print("PART 1: DBDAA paper cases (Data 1 = Best, Data 2 = Average, Data 3 = Worst)")
+    print("        everyone arrives at time 0")
     print("=" * 88)
     print("%-7s %-22s %8s %7s %7s %9s %6s" %
           ("Data", "Algorithm", "1st rnd", "total", "finish", "avg wait", "valid"))
@@ -136,7 +137,8 @@ def part2(runs=15):
     print("PART 2: scale test - comparisons as the number of processes grows (all arrive at 0)")
     print("        'Old gate' = first version of aging (waited >= 30); 'Enhanced' = final version")
     print("=" * 88)
-    for label, slack in (("tight systems", 3), ("loose systems", 12)):
+    for label, slack in (("Low resource headroom (slack=3)", 3),
+                         ("High resource headroom (slack=12)", 12)):
         print("\n" + label)
         print("%6s %12s %9s %16s %10s %10s" %
               ("n", "Traditional", "DBDAA", "Enhanced(check)", "Old gate", "Enhanced"))
@@ -183,7 +185,10 @@ def part3(runs=200, n=30):
     print("PART 3: random systems, staggered arrivals (n = %d, %d systems per table)" % (n, runs))
     print("        'Naive aging' and 'Old gate' are our first attempts, shown for the record")
     print("=" * 88)
-    for label, slack in (("very tight", 1), ("tight", 3), ("slightly tight", 6), ("loose", 12)):
+    for label, slack in (("Very low resource headroom (slack=1)", 1),
+                         ("Low resource headroom (slack=3)", 3),
+                         ("Moderate resource headroom (slack=6)", 6),
+                         ("High resource headroom (slack=12)", 12)):
         systems = good_systems(runs, n, slack, 40, slack * 11)
         print("\n%s" % label)
         print("%-22s %8s %9s %9s %8s" % ("Algorithm", "comps", "avg wait", "max wait", "finish"))
@@ -199,7 +204,7 @@ def part4(runs=300):
     print()
     print("=" * 88)
     print("PART 4: starvation test - 4 heavy processes + 40 small ones arriving steadily")
-    print("        (%d runs; resources are loose here)" % runs)
+    print("        (%d runs; resources have high headroom here)" % runs)
     print("=" * 88)
     rng = random.Random(1)
     systems = []
@@ -225,8 +230,9 @@ def part5():
     # 5a: adaptive check settings (streak_limit, probe_every)
     scenarios = []
     mx, al, bt = DATASETS["Table 4 (worst)"]
-    scenarios.append(("Data 3", [(TOTAL_RESOURCES, mx, al, bt, [0] * 10)]))
-    for label, slack in (("very tight", 1), ("tight", 3), ("slightly tight", 6), ("loose", 12)):
+    scenarios.append(("Worst case (Data 3)", [(TOTAL_RESOURCES, mx, al, bt, [0] * 10)]))
+    for label, slack in (("Very low headroom", 1), ("Low headroom", 3),
+                         ("Moderate headroom", 6), ("High headroom", 12)):
         scenarios.append((label, good_systems(150, 20, slack, 0, 500 + slack)))
 
     base = {}
@@ -253,19 +259,19 @@ def part5():
         r = dbdaa_run(*s)
         if len(r["safe_sequence"]) == len(s[1]):
             streams.append(s)
-    tight = good_systems(100, 30, 3, 40, 11)
+    low_headroom = good_systems(100, 30, 3, 40, 11)
     b_stream = measure(streams, IDLE)
-    b_tight = measure(tight, IDLE)
+    b_low_headroom = measure(low_headroom, IDLE)
     print("\n5b. Gated aging: (overtake_limit, probe_gap)")
-    print("    DBDAA (idle retry) reference: heavy wait %.1f, max wait %.1f | tight systems comps %.1f"
-          % (b_stream[3], b_stream[2], b_tight[0]))
-    print("%-12s %12s %10s %20s" % ("setting", "heavy wait", "max wait", "tight systems comps"))
+    print("    DBDAA (idle retry) reference: heavy wait %.1f, max wait %.1f | low-headroom checks %.1f"
+          % (b_stream[3], b_stream[2], b_low_headroom[0]))
+    print("%-12s %12s %10s %20s" % ("setting", "heavy wait", "max wait", "low-headroom checks"))
     for k in (3, 5, 10, 20):
         for gap in (1, 5, 10):
             fn = lambda *s, k=k, gap=gap: enhanced_run(*s, adaptive=False, overtake_limit=k,
                                                        probe_gap=gap, wait_for_cycle=False)
             st = measure(streams, fn)
-            ti = measure(tight, fn)
+            ti = measure(low_headroom, fn)
             print("(%2d,%2d)%s %12.1f %10.1f %20.1f%s" %
                   (k, gap, " " * 4, st[3], st[2], ti[0],
                    "   <- chosen" if (k, gap) == (5, 5) else ""))

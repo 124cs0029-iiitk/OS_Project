@@ -1,0 +1,76 @@
+{
+  "paper_datasets": [
+    {"dataset": "Data 1", "paper_case": "Best case", "traditional": 85, "dbdaa_first_round": 10, "dbdaa": 10, "enhanced_first_round": 10, "enhanced": 10},
+    {"dataset": "Data 2", "paper_case": "Average case", "traditional": 100, "dbdaa_first_round": 36, "dbdaa": 38, "enhanced_first_round": 36, "enhanced": 38},
+    {"dataset": "Data 3", "paper_case": "Worst case", "traditional": 125, "dbdaa_first_round": 70, "dbdaa": 84, "enhanced_first_round": 52, "enhanced": 62}
+  ],
+  "scaling": {
+    "n": [10, 25, 50, 100, 200],
+    "low_headroom": {
+      "traditional": [145, 825, 3368, 13047, 51310],
+      "dbdaa": [69, 247, 717, 2239, 8474],
+      "enhanced": [63, 214, 573, 1588, 5653]
+    },
+    "high_headroom": {
+      "traditional": [128, 752, 2832, 12253, 49857],
+      "dbdaa": [33, 118, 353, 1314, 4434],
+      "enhanced": [33, 118, 344, 1156, 3423]
+    }
+  },
+  "workloads": [
+    {"id": "W1", "description": "Paper data, random arrivals", "dbdaa_checks": 17.9, "enhanced_checks": 18.6, "dbdaa_order": 5.3, "enhanced_order": 4.1, "dbdaa_work": 23.3, "enhanced_work": 22.7, "dbdaa_avg_wait": 1.9, "enhanced_avg_wait": 1.9, "dbdaa_max_wait": 7.7, "enhanced_max_wait": 7.7},
+    {"id": "W2", "description": "Heavy-tailed needs", "dbdaa_checks": 63.3, "enhanced_checks": 66.5, "dbdaa_order": 378.2, "enhanced_order": 151.8, "dbdaa_work": 441.5, "enhanced_work": 218.4, "dbdaa_avg_wait": 48.3, "enhanced_avg_wait": 48.3, "dbdaa_max_wait": 131.8, "enhanced_max_wait": 131.5},
+    {"id": "W3", "description": "Specialized processes", "dbdaa_checks": 146.3, "enhanced_checks": 149.8, "dbdaa_order": 406.3, "enhanced_order": 178.2, "dbdaa_work": 552.6, "enhanced_work": 327.9, "dbdaa_avg_wait": 48.1, "enhanced_avg_wait": 48.1, "dbdaa_max_wait": 131.6, "enhanced_max_wait": 131.6},
+    {"id": "W4", "description": "Bursty arrivals", "dbdaa_checks": 89.1, "enhanced_checks": 93.6, "dbdaa_order": 105.8, "enhanced_order": 93.2, "dbdaa_work": 194.9, "enhanced_work": 186.9, "dbdaa_avg_wait": 12.2, "enhanced_avg_wait": 12.2, "dbdaa_max_wait": 30.0, "enhanced_max_wait": 30.0},
+    {"id": "W5", "description": "Late heavy arrivals", "dbdaa_checks": 64.0, "enhanced_checks": 64.0, "dbdaa_order": 569.4, "enhanced_order": 171.8, "dbdaa_work": 633.4, "enhanced_work": 235.8, "dbdaa_avg_wait": 20.4, "enhanced_avg_wait": 20.4, "dbdaa_max_wait": 111.2, "enhanced_max_wait": 41.1, "dbdaa_heavy_wait": 106.1, "enhanced_heavy_wait": 29.9},
+    {"id": "W6", "description": "Heavy-tailed run times", "dbdaa_checks": 291.7, "enhanced_checks": 249.7, "dbdaa_order": 388.4, "enhanced_order": 199.7, "dbdaa_work": 680.1, "enhanced_work": 449.4, "dbdaa_avg_wait": 126.8, "enhanced_avg_wait": 126.8, "dbdaa_max_wait": 296.8, "enhanced_max_wait": 296.8},
+    {"id": "W7", "description": "Abundant-resource control", "dbdaa_checks": 40.0, "enhanced_checks": 40.0, "dbdaa_order": 252.6, "enhanced_order": 132.4, "dbdaa_work": 292.6, "enhanced_work": 172.4, "dbdaa_avg_wait": 48.3, "enhanced_avg_wait": 48.4, "dbdaa_max_wait": 81.3, "enhanced_max_wait": 81.3}
+  ],
+  "runtime_small": [
+    {"workload": "W1", "dbdaa_ms": 0.2218, "enhanced_ms": 0.3188},
+    {"workload": "W2", "dbdaa_ms": 0.7192, "enhanced_ms": 1.1625},
+    {"workload": "W3", "dbdaa_ms": 0.7826, "enhanced_ms": 1.2818},
+    {"workload": "W4", "dbdaa_ms": 0.6603, "enhanced_ms": 0.8928},
+    {"workload": "W5", "dbdaa_ms": 0.9117, "enhanced_ms": 1.3850},
+    {"workload": "W6", "dbdaa_ms": 0.8816, "enhanced_ms": 1.2415},
+    {"workload": "W7", "dbdaa_ms": 0.5428, "enhanced_ms": 0.7837}
+  ],
+  "starvation": [
+    {"scenario": "Steady stream: heavy wait", "runs": 300, "dbdaa": 87.5, "enhanced": 16.1},
+    {"scenario": "Late arrivals: heavy wait", "runs": 200, "dbdaa": 106.1, "enhanced": 29.9},
+    {"scenario": "Late arrivals: maximum wait", "runs": 200, "dbdaa": 111.2, "enhanced": 41.1}
+  ],
+  "high_dimension": [
+    {"processes": 100, "resources": 50, "dbdaa_ms": 30.12, "enhanced_ms": 6.15, "dbdaa_checks": 7500, "enhanced_checks": 5074, "dbdaa_work": 7599, "enhanced_work": 5554},
+    {"processes": 100, "resources": 100, "dbdaa_ms": 100.30, "enhanced_ms": 12.52, "dbdaa_checks": 15000, "enhanced_checks": 10124, "dbdaa_work": 15099, "enhanced_work": 10604},
+    {"processes": 100, "resources": 200, "dbdaa_ms": 383.87, "enhanced_ms": 26.52, "dbdaa_checks": 30000, "enhanced_checks": 20224, "dbdaa_work": 30099, "enhanced_work": 20704},
+    {"processes": 300, "resources": 50, "dbdaa_ms": 84.77, "enhanced_ms": 17.90, "dbdaa_checks": 22500, "enhanced_checks": 15124, "dbdaa_work": 22799, "enhanced_work": 17022},
+    {"processes": 300, "resources": 100, "dbdaa_ms": 334.46, "enhanced_ms": 35.43, "dbdaa_checks": 45000, "enhanced_checks": 30174, "dbdaa_work": 45299, "enhanced_work": 32072},
+    {"processes": 300, "resources": 200, "dbdaa_ms": 1163.22, "enhanced_ms": 67.69, "dbdaa_checks": 90000, "enhanced_checks": 60274, "dbdaa_work": 90299, "enhanced_work": 62172}
+  ],
+  "adaptive_sensitivity": [
+    {"setting": "1,1", "Worst case (Data 3)": -17.9, "Very low headroom": -5.6, "Low headroom": 1.0, "Moderate headroom": 7.5, "High headroom": 8.7},
+    {"setting": "1,2", "Worst case (Data 3)": -25.0, "Very low headroom": -16.5, "Low headroom": -9.3, "Moderate headroom": -0.5, "High headroom": 5.4},
+    {"setting": "1,4", "Worst case (Data 3)": -28.6, "Very low headroom": -22.0, "Low headroom": -14.5, "Moderate headroom": -4.4, "High headroom": 4.7},
+    {"setting": "2,1", "Worst case (Data 3)": -16.7, "Very low headroom": -5.5, "Low headroom": -0.6, "Moderate headroom": 2.3, "High headroom": 1.2},
+    {"setting": "2,2", "Worst case (Data 3)": -22.6, "Very low headroom": -14.6, "Low headroom": -7.6, "Moderate headroom": -1.8, "High headroom": 0.7},
+    {"setting": "2,4", "Worst case (Data 3)": -26.2, "Very low headroom": -19.2, "Low headroom": -11.0, "Moderate headroom": -3.8, "High headroom": 0.5},
+    {"setting": "3,1", "Worst case (Data 3)": -15.5, "Very low headroom": -5.1, "Low headroom": -1.1, "Moderate headroom": 0.4, "High headroom": 0.1},
+    {"setting": "3,2", "Worst case (Data 3)": -21.4, "Very low headroom": -12.0, "Low headroom": -5.6, "Moderate headroom": -1.3, "High headroom": 0.0},
+    {"setting": "3,4", "Worst case (Data 3)": -23.8, "Very low headroom": -15.5, "Low headroom": -7.8, "Moderate headroom": -2.1, "High headroom": 0.0}
+  ],
+  "aging_sensitivity": [
+    {"overtakes": 3, "probe_gap": 1, "heavy_wait": 11.7, "max_wait": 33.4, "low_headroom_checks": 189.2},
+    {"overtakes": 3, "probe_gap": 5, "heavy_wait": 11.7, "max_wait": 33.4, "low_headroom_checks": 187.5},
+    {"overtakes": 3, "probe_gap": 10, "heavy_wait": 11.7, "max_wait": 33.4, "low_headroom_checks": 186.7},
+    {"overtakes": 5, "probe_gap": 1, "heavy_wait": 15.8, "max_wait": 34.5, "low_headroom_checks": 190.3},
+    {"overtakes": 5, "probe_gap": 5, "heavy_wait": 15.8, "max_wait": 34.5, "low_headroom_checks": 188.2},
+    {"overtakes": 5, "probe_gap": 10, "heavy_wait": 15.8, "max_wait": 34.5, "low_headroom_checks": 187.4},
+    {"overtakes": 10, "probe_gap": 1, "heavy_wait": 26.0, "max_wait": 37.0, "low_headroom_checks": 189.8},
+    {"overtakes": 10, "probe_gap": 5, "heavy_wait": 26.0, "max_wait": 37.0, "low_headroom_checks": 187.8},
+    {"overtakes": 10, "probe_gap": 10, "heavy_wait": 26.0, "max_wait": 37.0, "low_headroom_checks": 187.0},
+    {"overtakes": 20, "probe_gap": 1, "heavy_wait": 46.5, "max_wait": 60.0, "low_headroom_checks": 184.8},
+    {"overtakes": 20, "probe_gap": 5, "heavy_wait": 46.5, "max_wait": 60.0, "low_headroom_checks": 184.7},
+    {"overtakes": 20, "probe_gap": 10, "heavy_wait": 46.5, "max_wait": 60.0, "low_headroom_checks": 184.7}
+  ]
+}

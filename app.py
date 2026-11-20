@@ -145,7 +145,7 @@ def load_dataset(name: str) -> tuple[list[Process], list[int]]:
 
 
 def flowchart_image_html(filename: str, width: int = 760) -> str:
-    image_path = Path(__file__).with_name(filename)
+    image_path = Path(__file__).parent / "results" / "images" / filename
     if not image_path.exists():
         candidates = sorted(image_path.parent.glob("Traditional Banker*Algorithm Flowchart.png"))
         if candidates:
@@ -551,7 +551,7 @@ DBDAA keeps the safety guarantee but uses a `Max_Need / Min_A` shortcut. It sort
 
 Enhanced DBDAA builds on DBDAA with three changes:
 
-1. **Adaptive safety checks:** switches between the DBDAA check and a plain scan when the system is tight.
+1. **Adaptive safety checks:** switches between the DBDAA check and a plain scan when resource headroom is low.
 2. **Gated aging:** gives a long-waiting process a chance to run only when a quick availability probe says it can pass.
 3. **Back-off and idle retry:** failed aging probes are spaced out, while parked processes are retried when the processor would otherwise be idle.
 

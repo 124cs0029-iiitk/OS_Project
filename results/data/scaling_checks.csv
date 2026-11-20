@@ -1,0 +1,11 @@
+regime,processes,traditional_checks,dbdaa_checks,enhanced_checks
+low headroom,10,145,69,63
+low headroom,25,825,247,214
+low headroom,50,3368,717,573
+low headroom,100,13047,2239,1588
+low headroom,200,51310,8474,5653
+high headroom,10,128,33,33
+high headroom,25,752,118,118
+high headroom,50,2832,353,344
+high headroom,100,12253,1314,1156
+high headroom,200,49857,4434,3423
