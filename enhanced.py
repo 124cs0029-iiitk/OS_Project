@@ -100,6 +100,7 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
     validate_input(total, maximum, allocation, burst, arrival)
     n = len(maximum)
     d = len(total)
+    earliest_arrival = min(arrival) if arrival else None
 
     checker = AdaptiveChecker()
     available = total[:]
@@ -120,6 +121,7 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
     retries = [0] * n
 
     overtaken = [0] * n      # how many times a later-arriving process ran before process i
+    aging_ready = set()
     gap_now = probe_gap      # current waiting time between aging tries (grows with back-off)
     queue_dirty = False      # True when the ready queue must be sorted again
     sort_comparisons = 0     # comparisons spent on keeping the ready queue in order
@@ -182,6 +184,8 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
         k = len(batch)
         if k == 0:
             return
+        if overtake_limit is not None:
+            aging_ready.update(i for i in batch if overtaken[i] >= overtake_limit)
         if not (sorted_insertion and alpha == 0):
             ready_queue.extend(batch)
             queue_dirty = True
@@ -274,8 +278,11 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
             use_gate = (overtake_limit is not None) or (gate_wait is not None)
             if use_gate and len(ready_queue) > 1 and decisions >= next_probe:
                 if overtake_limit is not None:
-                    cand = max(ready_queue, key=lambda x: (overtaken[x], -arrival[x], -x))
-                    trigger = cand != ready_queue[0] and overtaken[cand] >= overtake_limit
+                    if aging_ready:
+                        cand = max(aging_ready, key=lambda x: (overtaken[x], -arrival[x], -x))
+                        trigger = cand != ready_queue[0]
+                    else:
+                        trigger = False
                 else:
                     cand = min(ready_queue, key=lambda x: (arrival[x], x))
                     trigger = cand != ready_queue[0] and clock - arrival[cand] >= gate_wait
@@ -292,10 +299,12 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
 
             if picked is not None:
                 ready_queue.remove(picked)
+                aging_ready.discard(picked)
                 i = picked
                 ok, comps = True, 0
             else:
                 i = ready_queue.pop(0)
+                aging_ready.discard(i)
                 if adaptive:
                     ok, comps = checker.check(need[i], available)
                 else:
@@ -307,10 +316,13 @@ def enhanced_run(total, maximum, allocation, burst, arrival,
             if ok:
                 if first_start[i] is None:
                     first_start[i] = clock
-                if overtake_limit is not None:
+                if (overtake_limit is not None and earliest_arrival is not None
+                        and arrival[i] > earliest_arrival):
                     for q in ready_queue:
                         if arrival[q] < arrival[i]:
                             overtaken[q] += 1
+                            if overtaken[q] >= overtake_limit:
+                                aging_ready.add(q)
                 timeline.append((i + 1, clock, clock + burst[i]))
                 clock += burst[i]
                 finish_time[i] = clock

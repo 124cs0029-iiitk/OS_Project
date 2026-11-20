@@ -159,6 +159,7 @@ def _run_dynamic(
     enhanced: bool = False,
 ) -> AlgorithmResult:
     pending = sorted(processes, key=lambda item: (item.arrival_time, item.pid))
+    earliest_arrival = min((process.arrival_time for process in processes), default=None)
     available = totals.copy()
     ready: list[Process] = []
     primary: list[Process] = []
@@ -173,6 +174,8 @@ def _run_dynamic(
     timer = cycle_duration
     progress = True
     overtaken = {process.pid: 0 for process in processes}
+    aging_ready: set[str] = set()
+    process_by_pid = {process.pid: process for process in processes}
     decisions = 0
     next_probe = 0
     probe_gap = 5
@@ -204,12 +207,12 @@ def _run_dynamic(
             probe_cost = 0
             chosen: Process | None = None
             ready.sort(key=lambda item: (item.max_need, item.arrival_time, item.pid))
-            if enhanced and len(ready) > 1 and decisions >= next_probe:
+            if enhanced and aging_ready and len(ready) > 1 and decisions >= next_probe:
                 candidate = max(
-                    ready,
+                    (process_by_pid[pid] for pid in aging_ready),
                     key=lambda item: (overtaken[item.pid], -item.arrival_time, item.pid),
                 )
-                if candidate is not ready[0] and overtaken[candidate.pid] >= 5:
+                if candidate is not ready[0]:
                     probe_cost = 1
                     if max(candidate.need, default=0) <= min(available, default=0):
                         chosen = candidate
@@ -219,6 +222,7 @@ def _run_dynamic(
                         backoff = min(backoff * 2, 160)
             process = chosen or ready[0]
             ready.remove(process)
+            aging_ready.discard(process.pid)
             check_need = list(process.need)
             eligible, count, reason = checker(check_need, available)
             count += probe_cost
@@ -231,10 +235,13 @@ def _run_dynamic(
             ))
             clock += 1
             if eligible:
-                if enhanced:
+                if (enhanced and earliest_arrival is not None
+                        and process.arrival_time > earliest_arrival):
                     for waiting in ready:
                         if waiting.arrival_time < process.arrival_time:
                             overtaken[waiting.pid] += 1
+                            if overtaken[waiting.pid] >= 5:
+                                aging_ready.add(waiting.pid)
                 available[:] = [
                     current + allocated
                     for current, allocated in zip(available, process.allocation)
@@ -256,6 +263,10 @@ def _run_dynamic(
                 timer = clock + cycle_duration
                 if primary:
                     ready.extend(primary)
+                    if enhanced:
+                        aging_ready.update(
+                            process.pid for process in primary if overtaken[process.pid] >= 5
+                        )
                     primary.clear()
             continue
 
@@ -275,6 +286,10 @@ def _run_dynamic(
             cycle += 1
             timer = clock + cycle_duration
             ready.extend(primary)
+            if enhanced:
+                aging_ready.update(
+                    process.pid for process in primary if overtaken[process.pid] >= 5
+                )
             primary.clear()
             continue
 
